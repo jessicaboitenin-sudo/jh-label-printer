@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JH Corporation — Étiquettes produits</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #F4F6FA;
+      color: #1B2A4A;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: #1B2A4A;
+      color: white;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    }
+    .logo-mark {
+      width: 40px; height: 40px;
+      background: #C8A94A;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 900; color: #1B2A4A;
+      flex-shrink: 0;
+    }
+    .header h1 { font-size: 16px; font-weight: 800; line-height: 1.1; }
+    .header p  { font-size: 11px; color: #8FA8D0; margin-top: 2px; }
+    .header-right { margin-left: auto; text-align: right; font-size: 11px; color: #8FA8D0; }
+    .header-right strong { display: block; font-size: 20px; font-weight: 900; color: #C8A94A; line-height: 1; }
+
+    /* ── Search bar ── */
+    .search-bar {
+      background: #1B2A4A;
+      padding: 0 20px 14px;
+    }
+    .search-wrap { position: relative; max-width: 700px; }
+    .search-wrap input {
+      width: 100%;
+      height: 44px;
+      background: rgba(255,255,255,0.12);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 0 44px 0 42px;
+      font-size: 15px;
+      color: white;
+      outline: none;
+    }
+    .search-wrap input::placeholder { color: rgba(255,255,255,0.4); }
+    .search-wrap input:focus { border-color: #C8A94A; }
+    .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); opacity: 0.5; pointer-events: none; }
+    .search-clear {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: rgba(255,255,255,0.2); border: none; border-radius: 50%;
+      width: 22px; height: 22px; cursor: pointer; color: white; font-size: 12px;
+      display: none; align-items: center; justify-content: center;
+    }
+    .search-clear.visible { display: flex; }
+
+    /* ── Layout: sidebar + main ── */
+    .app-body {
+      display: flex;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    /* ── Product list (left) ── */
+    .product-list {
+      flex: 1;
+      min-width: 0;
+    }
+    .list-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #6B7A96;
+      margin-bottom: 10px;
+    }
+    .product-item {
+      background: white;
+      border: 1.5px solid #DDE3EE;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .product-item:hover { border-color: #1B2A4A; }
+    .product-item.selected { border-color: #1B2A4A; background: #EEF2FF; box-shadow: 0 0 0 3px rgba(27,42,74,0.1); }
+    .item-name { font-weight: 700; font-size: 13px; flex: 1; min-width: 0; }
+    .item-ean  { font-size: 11px; color: #6B7A96; font-family: monospace; white-space: nowrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 7px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-perish    { background: #E8F5E9; color: #2E7D32; }
+    .badge-nonperish { background: #FFF3E0; color: #E65100; }
+    .badge-warning   { background: #FFF8E1; color: #F57F17; }
+
+    .empty-msg {
+      text-align: center; padding: 40px 20px;
+      color: #6B7A96; font-size: 13px;
+    }
+    .empty-msg strong { display: block; font-size: 15px; color: #1B2A4A; margin-bottom: 6px; }
+
+    /* ── Right panel ── */
+    .right-panel {
+      width: 300px;
+      flex-shrink: 0;
+    }
+    .panel-card {
+      background: white;
+      border: 1.5px solid #DDE3EE;
+      border-radius: 14px;
+      padding: 20px;
+      position: sticky;
+      top: 90px;
+    }
+    .panel-card h2 { font-size: 13px; font-weight: 800; color: #1B2A4A; margin-bottom: 14px; }
+
+    /* Quantity */
+    .qty-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .qty-label { font-size: 12px; font-weight: 700; color: #6B7A96; flex: 1; }
+    .qty-control { display: flex; align-items: center; gap: 8px; }
+    .qty-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid #DDE3EE;
+      background: #F4F6FA; font-size: 18px; font-weight: 900; color: #1B2A4A;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .qty-btn:hover { background: #DDE3EE; }
+    .qty-num { font-size: 20px; font-weight: 900; color: #1B2A4A; min-width: 28px; text-align: center; }
+
+    /* Label preview */
+    .label-preview {
+      border: 1.5px dashed #DDE3EE;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 14px;
+      background: #FAFBFC;
+      min-height: 80px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .label-preview .no-select { font-size: 12px; color: #9CA3AF; text-align: center; }
+
+    /* The printable label (preview) */
+    .label-box {
+      width: 100%;
+      border: 1px solid #DDE3EE;
+      border-radius: 6px;
+      background: white;
+      padding: 6px 8px;
+      text-align: center;
+    }
+    .label-box .lbl-name {
+      font-size: 13px; font-weight: 900; color: #1B2A4A;
+      margin-bottom: 4px; line-height: 1.2;
+    }
+    .label-box svg { width: 100%; height: auto; display: block; }
+    .label-box .lbl-dates {
+      font-size: 9px; color: #444; margin-top: 3px;
+    }
+
+    /* Print button */
+    .print-btn {
+      width: 100%;
+      padding: 13px;
+      background: #1B2A4A;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.15s;
+    }
+    .print-btn:hover { background: #2A3F6F; }
+    .print-btn:disabled { background: #9CA3AF; cursor: not-allowed; }
+
+    /* ── Date Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(10,20,45,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.visible { opacity: 1; pointer-events: all; }
+    .modal {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 24px 22px;
+      max-width: 360px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      transform: scale(0.94) translateY(10px);
+      transition: transform 0.25s cubic-bezier(0.34,1.2,0.64,1), opacity 0.2s;
+      opacity: 0;
+    }
+    .modal-overlay.visible .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal-icon {
+      width: 52px; height: 52px; background: #FFF3CD; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; margin: 0 auto 14px;
+    }
+    .modal-title { font-size: 15px; font-weight: 900; text-align: center; margin-bottom: 4px; }
+    .modal-sub   { font-size: 12px; color: #6B7A96; text-align: center; margin-bottom: 18px; }
+    .date-display {
+      background: #F4F6FA; border: 2px solid #DDE3EE; border-radius: 12px;
+      padding: 12px 16px; text-align: center; margin-bottom: 14px;
+    }
+    .date-display .d-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #6B7A96; margin-bottom: 4px; }
+    .date-display .d-value { font-size: 22px; font-weight: 900; color: #1B2A4A; }
+    .date-display .d-value span { font-size: 13px; font-weight: 600; color: #6B7A96; margin-left: 6px; }
+    .date-correction { display: none; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .date-correction.visible { display: flex; }
+    .date-correction input[type=date] {
+      flex: 1; padding: 10px 12px; border-radius: 10px;
+      border: 2px solid #DDE3EE; background: #F4F6FA;
+      font-size: 14px; font-weight: 700; color: #1B2A4A; outline: none;
+    }
+    .date-correction input[type=date]:focus { border-color: #1B2A4A; }
+    .btn-apply-date {
+      padding: 10px 14px; border-radius: 10px; border: none;
+      background: #C8A94A; font-size: 13px; font-weight: 800; color: #1B2A4A; cursor: pointer;
+    }
+    .modal-actions { display: flex; gap: 10px; }
+    .btn-correct {
+      flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #DDE3EE;
+      background: transparent; font-size: 13px; font-weight: 800; color: #1B2A4A;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background 0.1s;
+    }
+    .btn-correct:hover { background: #F4F6FA; }
+    .btn-confirm {
+      flex: 1.5; padding: 12px; border-radius: 10px; border: none;
+      background: #1B2A4A; font-size: 13px; font-weight: 800; color: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background 0.1s;
+    }
+    .btn-confirm:hover { background: #2A3F6F; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      text-align: center; padding: 10px 20px;
+      font-size: 12px; color: #6B7A96;
+      background: #F4F6FA;
+      border-top: 1px solid #DDE3EE;
+    }
+    #status-msg { font-weight: 700; }
+    #status-msg.ok    { color: #2E7D32; }
+    #status-msg.error { color: #C62828; }
+    #status-msg.info  { color: #1B2A4A; }
+
+    /* ── Print styles ── */
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: fixed; inset: 0; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .app-body { flex-direction: column; padding: 12px; }
+      .right-panel { width: 100%; }
+      .panel-card { position: static; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo-mark">JH</div>
+  <div>
+    <h1>JH Corporation</h1>
+    <p>Étiquetage Production</p>
+  </div>
+  <div class="header-right">
+    <strong id="count-num">—</strong>
+    produits
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div class="search-bar">
+  <div class="search-wrap">
+    <svg class="search-icon" width="18" height="18" fill="none" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" stroke="white" stroke-width="2"/>
+      <path d="M16.5 16.5L21 21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <input type="text" id="search-input" placeholder="Rechercher un produit…" oninput="handleSearch(this.value)">
+    <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="app-body">
+
+  <!-- LIST -->
+  <div class="product-list">
+    <div class="list-label" id="list-label">Chargement…</div>
+    <div id="product-list-container"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="panel-card">
+      <h2>🖨️ Imprimer</h2>
+
+      <div class="qty-row">
+        <div class="qty-label">Quantité</div>
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changeQty(-1)">−</button>
+          <div class="qty-num" id="qty-num">1</div>
+          <button class="qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+      </div>
+
+      <div class="label-preview" id="label-preview">
+        <div class="no-select">Sélectionnez un produit pour voir l'aperçu</div>
+      </div>
+
+      <button class="print-btn" id="print-btn" disabled onclick="openDateModal()">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+          <rect x="5" y="2" width="14" height="8" rx="1" stroke="currentColor" stroke-width="2"/>
+          <rect x="5" y="12" width="14" height="10" rx="1" stroke="currentColor" stroke-width="2"/>
+          <path d="M5 16H2V8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8h-3" stroke="currentColor" stroke-width="2"/>
+          <circle cx="18" cy="11" r="1" fill="currentColor"/>
+        </svg>
+        Imprimer les étiquettes
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DATE MODAL -->
+<div class="modal-overlay" id="date-modal">
+  <div class="modal">
+    <div class="modal-icon">📅</div>
+    <div class="modal-title">Date de production</div>
+    <div class="modal-sub" id="modal-product-name"></div>
+
+    <div class="date-display">
+      <div class="d-label">Date de production</div>
+      <div class="d-value" id="modal-date-value"></div>
+    </div>
+
+    <div class="date-correction" id="date-correction">
+      <input type="date" id="date-input" oninput="applyCustomDate(this.value)">
+      <button class="btn-apply-date" onclick="applyCustomDate(document.getElementById('date-input').value)">OK</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-correct" onclick="toggleDateCorrection()">
+        ✏️ Corriger
+      </button>
+      <button class="btn-confirm" onclick="confirmDate()">
+        ✅ Confirmer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div class="status-bar">
+  <span id="status-msg" class="info">Chargement des produits…</span>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQmhXTV8Qy-1-5TjW4JglDelVo_ny93GgPmV1nDQ9aK9r9B8cfRItDPr92GVT_wgtdNW81_atLa8yZZ/pub?gid=304061721&single=true&output=csv';
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let allProducts  = [];
+let productMap   = {};
+let selected     = null;
+let qty          = 1;
+let searchVal    = '';
+let confirmedDate = null;
+let correctionOpen = false;
+
+// ════════════════════════════════════════════
+// CSV PARSER (handles quoted fields with commas & apostrophes)
+// ════════════════════════════════════════════
+function parseCSVRow(row) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < row.length; i++) {
+    const c = row[i];
+    if (c === '"') {
+      if (inQ && row[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      result.push(cur.trim()); cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+// ════════════════════════════════════════════
+// BARCODE NORMALIZER
+// ════════════════════════════════════════════
+function normalizeBarcode(raw) {
+  let b = String(raw).trim().replace(/\D/g, '');
+  if (b.length === 14 && b.startsWith('0')) b = b.slice(1);
+  return b;
+}
+
+// ════════════════════════════════════════════
+// DATE HELPERS
+// ════════════════════════════════════════════
+function formatDateFR(d) {
+  const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+function formatDateLabel(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+function isToday(d) {
+  const t = new Date();
+  return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear();
+}
+function calcDLV(prodDate, dlvJours) {
+  if (!dlvJours || dlvJours === 0) return null;
+  const dlv = new Date(prodDate);
+  dlv.setDate(dlv.getDate() + dlvJours);
+  return dlv;
+}
+
+// ════════════════════════════════════════════
+// LOAD SHEET
+// ════════════════════════════════════════════
+function setStatus(msg, type='info') {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = type;
+}
+
+async function loadSheet() {
+  try {
+    setStatus('Chargement des produits…', 'info');
+    const r = await fetch(SHEET_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const text = await r.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) throw new Error('Feuille vide');
+
+    const header = parseCSVRow(lines[0]).map(h => h.toLowerCase().trim());
+    const iName = header.findIndex(h => h.includes('nom'));
+    const iEan  = header.findIndex(h => h.includes('code') || h.includes('ean') || h.includes('barr'));
+    const iDlv  = header.findIndex(h => h.includes('dlv') || h.includes('dur'));
+
+    if (iName < 0 || iEan < 0) throw new Error('Colonnes Nom/Code introuvables');
+
+    allProducts = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVRow(lines[i]);
+      const name = cols[iName] ? cols[iName].trim() : '';
+      const raw  = cols[iEan]  ? cols[iEan].trim()  : '';
+      const dlvJ = iDlv >= 0 && cols[iDlv] ? parseInt(cols[iDlv]) || 0 : 0;
+      if (!name || !raw) continue;
+      const ean = normalizeBarcode(raw);
+      if (!ean) continue;
+      allProducts.push({ name, ean, dlvJours: dlvJ });
+    }
+
+    document.getElementById('count-num').textContent = allProducts.toLocaleString ? allProducts.length.toLocaleString('fr-FR') : allProducts.length;
+    setStatus(allProducts.length + ' produits chargés', 'ok');
+    renderList();
+  } catch(e) {
+    setStatus('Erreur : ' + e.message, 'error');
+    document.getElementById('list-label').textContent = 'Erreur de chargement';
+  }
+}
+
+// ════════════════════════════════════════════
+// RENDER LIST
+// ════════════════════════════════════════════
+function renderList() {
+  const container = document.getElementById('product-list-container');
+  const label = document.getElementById('list-label');
+
+  const q = searchVal.toLowerCase();
+  const filtered = allProducts.filter(p => !q || p.name.toLowerCase().includes(q));
+
+  document.getElementById('count-num').textContent = filtered.length;
+  label.textContent = filtered.length + ' produit' + (filtered.length > 1 ? 's' : '');
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-msg"><strong>Aucun résultat</strong>Essayez un autre terme</div>';
+    return;
+  }
+
+  productMap = {};
+  filtered.forEach((p, i) => { productMap[i] = p; });
+
+  container.innerHTML = filtered.map((p, i) => {
+    const isSelected = selected && selected.ean === p.ean && selected.name === p.name;
+    let badge = '';
+    if (p.dlvJours === 0) {
+      badge = '<span class="badge badge-nonperish">♾ Non périssable</span>';
+    } else if (p.dlvJours <= 3) {
+      badge = `<span class="badge badge-warning">⚠️ DLV ${p.dlvJours}j</span>`;
+    } else {
+      badge = `<span class="badge badge-perish">🕐 DLV ${p.dlvJours}j</span>`;
+    }
+    return `<div class="product-item${isSelected?' selected':''}" onclick="selectProduct(${i})">
+      <div class="item-name">${p.name}</div>
+      <div class="item-ean">${p.ean}</div>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// SELECT PRODUCT
+// ════════════════════════════════════════════
+function selectProduct(idx) {
+  selected = productMap[idx];
+  qty = 1;
+  document.getElementById('qty-num').textContent = qty;
+  renderList();
+  updatePreview();
+  document.getElementById('print-btn').disabled = false;
+}
+
+// ════════════════════════════════════════════
+// BARCODE SVG GENERATOR
+// ════════════════════════════════════════════
+function getSVGString(barcode) {
+  const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  tmp.style.display = 'none';
+  document.body.appendChild(tmp);
+  try {
+    JsBarcode(tmp, barcode, {
+      format: 'EAN13', width: 1.8, height: 58,
+      displayValue: true, fontSize: 12, margin: 2
+    });
+  } catch(e) {
+    try {
+      JsBarcode(tmp, barcode, {
+        format: 'CODE128', width: 1.5, height: 55,
+        displayValue: true, fontSize: 11, margin: 2
+      });
+    } catch(e2) {}
+  }
+  const s = tmp.outerHTML;
+  document.body.removeChild(tmp);
+  return s;
+}
+
+// ════════════════════════════════════════════
+// PREVIEW
+// ════════════════════════════════════════════
+function updatePreview(prodDate) {
+  if (!selected) return;
+  const preview = document.getElementById('label-preview');
+  const d = prodDate || new Date();
+  const svgStr = getSVGString(selected.ean);
+  let datesLine = '';
+  if (selected.dlvJours > 0) {
+    const dlv = calcDLV(d, selected.dlvJours);
+    datesLine = `<div class="lbl-dates">Prod: ${formatDateLabel(d)} · DLV: ${formatDateLabel(dlv)}</div>`;
+  }
+  preview.innerHTML = `<div class="label-box">
+    <div class="lbl-name">${selected.name}</div>
+    ${svgStr}
+    ${datesLine}
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// QTY
+// ════════════════════════════════════════════
+function changeQty(delta) {
+  qty = Math.max(1, qty + delta);
+  document.getElementById('qty-num').textContent = qty;
+}
+
+// ════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════
+function handleSearch(val) {
+  searchVal = val.trim();
+  document.getElementById('search-clear').classList.toggle('visible', val.length > 0);
+  renderList();
+}
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  searchVal = '';
+  document.getElementById('search-clear').classList.remove('visible');
+  renderList();
+}
+
+// ════════════════════════════════════════════
+// DATE MODAL
+// ════════════════════════════════════════════
+function setModalDate(d) {
+  confirmedDate = d;
+  const label = isToday(d) ? `<span>aujourd'hui</span>` : '';
+  document.getElementById('modal-date-value').innerHTML = formatDateFR(d) + label;
+}
+
+function openDateModal() {
+  if (!selected) return;
+  correctionOpen = false;
+  document.getElementById('date-correction').classList.remove('visible');
+  setModalDate(new Date());
+  const iso = new Date().toISOString().split('T')[0];
+  document.getElementById('date-input').value = iso;
+  document.getElementById('modal-product-name').textContent = selected.name;
+  document.getElementById('date-modal').classList.add('visible');
+}
+
+function toggleDateCorrection() {
+  correctionOpen = !correctionOpen;
+  document.getElementById('date-correction').classList.toggle('visible', correctionOpen);
+  if (correctionOpen) setTimeout(() => document.getElementById('date-input').focus(), 50);
+}
+
+function applyCustomDate(val) {
+  if (!val) return;
+  const parts = val.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  setModalDate(d);
+  correctionOpen = false;
+  document.getElementById('date-correction').classList.remove('visible');
+}
+
+function confirmDate() {
+  document.getElementById('date-modal').classList.remove('visible');
+  updatePreview(confirmedDate);
+  printLabels(confirmedDate);
+}
+
+document.getElementById('date-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('visible');
+});
+
+// ════════════════════════════════════════════
+// PRINT
+// ════════════════════════════════════════════
+function printLabels(prodDate) {
+  if (!selected) return;
+  const d = prodDate || new Date();
+  const svgStr = getSVGString(selected.ean);
+
+  let datesLine = '';
+  if (selected.dlvJours > 0) {
+    const dlv = calcDLV(d, selected.dlvJours);
+    datesLine = `<p style="font-size:11px;margin:2px 0 0;color:#333;">Prod: ${formatDateLabel(d)} &nbsp;·&nbsp; DLV: ${formatDateLabel(dlv)}</p>`;
+  }
+
+  const labelHTML = `
+    <div style="text-align:center;padding:2mm 2mm 1mm;">
+      <p style="font-size:16px;font-weight:900;margin:0 0 2px;font-family:Arial,sans-serif;line-height:1.2;">${selected.name}</p>
+      ${svgStr}
+      ${datesLine}
+    </div>`;
+
+  let labelsBlock = '';
+  for (let i = 0; i < qty; i++) labelsBlock += labelHTML;
+
+  const win = window.open('', '_blank', 'width=400,height=500');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <style>
+      @page { size: 70mm 40mm; margin: 1mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 0; }
+      .label { width: 68mm; height: 38mm; overflow: hidden; page-break-after: always; display: flex; align-items: center; justify-content: center; }
+      svg { width: 100%; height: auto; }
+    </style>
+  </head><body>`);
+  for (let i = 0; i < qty; i++) {
+    win.document.write(`<div class="label">${labelHTML}</div>`);
+  }
+  win.document.write('</body></html>');
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+loadSheet();
+</script>
+</body>
+</html>
